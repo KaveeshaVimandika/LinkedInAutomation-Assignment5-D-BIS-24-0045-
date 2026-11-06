@@ -1,0 +1,22 @@
+
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<suite name="LinkedIn Automation Suite" parallel="false">
+
+    <test name="LinkedIn Functional Tests">
+
+        <classes>
+
+            <class name="com.linkedin.automation.tests.LoginTest"/>
+
+            <class name="com.linkedin.automation.tests.NegativeLoginTest"/>
+
+            <class name="com.linkedin.automation.tests.SearchTest"/>
+
+            <class name="com.linkedin.automation.tests.ProfileTest"/>
+
+        </classes>
+
+    </test>
+
+</suite>

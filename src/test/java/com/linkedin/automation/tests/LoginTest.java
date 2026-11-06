@@ -1,8 +1,9 @@
+
 package com.linkedin.automation.tests;
 
 import com.linkedin.automation.base.BaseTest;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebElement;
+import com.linkedin.automation.pages.LoginPage;
+
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -14,16 +15,10 @@ public class LoginTest extends BaseTest {
     @Test
     public void verifySuccessfulLogin() {
 
-        // Open LinkedIn login page
-        driver.get("https://www.linkedin.com/login");
-
-        WebDriverWait wait = new WebDriverWait(
-                driver, Duration.ofSeconds(30)
-        );
-
-        // Get login credentials from VM options
+        // Get credentials from VM options
         String email = System.getProperty("linkedin.email");
-        String passwordValue = System.getProperty("linkedin.password");
+        String passwordValue =
+                System.getProperty("linkedin.password");
 
         Assert.assertNotNull(
                 email, "LinkedIn email is not configured"
@@ -33,65 +28,31 @@ public class LoginTest extends BaseTest {
                 passwordValue, "LinkedIn password is not configured"
         );
 
-        // Find visible username field
-        WebElement username = wait.until(d ->
-                d.findElements(By.cssSelector("input[type='email']"))
-                        .stream()
-                        .filter(WebElement::isDisplayed)
-                        .findFirst()
-                        .orElse(null)
-        );
+        // Create LoginPage object
+        LoginPage loginPage = new LoginPage(driver);
 
-        // Find visible password field
-        WebElement password = wait.until(d ->
-                d.findElements(By.cssSelector("input[type='password']"))
-                        .stream()
-                        .filter(WebElement::isDisplayed)
-                        .findFirst()
-                        .orElse(null)
-        );
+        // Open LinkedIn login page
+        loginPage.openLoginPage();
 
-        // Enter login details
-        username.clear();
-        username.sendKeys(email);
-
-        password.clear();
-        password.sendKeys(passwordValue);
-
-        // Find Sign In button
-        WebElement signInButton = wait.until(d ->
-                d.findElements(By.xpath(
-                                "//button[.//span[normalize-space()='Sign in']]"
-                        ))
-                        .stream()
-                        .filter(WebElement::isDisplayed)
-                        .findFirst()
-                        .orElse(null)
-        );
-
-        // Click Sign In
-        signInButton.click();
+        // Enter credentials and click Sign In
+        loginPage.login(email, passwordValue);
 
         System.out.println("Sign In button clicked!");
         System.out.println("Waiting for LinkedIn verification...");
 
-        // Allow time for manual security verification
-        WebDriverWait loginWait = new WebDriverWait(
+        // Wait for manual security verification
+        boolean loginSuccessful = new WebDriverWait(
                 driver, Duration.ofSeconds(300)
-        );
-
-        // Wait until LinkedIn Feed page opens
-        boolean loginSuccessful = loginWait.until(d -> {
+        ).until(d -> {
 
             String currentUrl = d.getCurrentUrl();
 
             System.out.println("Current URL: " + currentUrl);
 
             return currentUrl.contains("/feed");
-
         });
 
-        // Verify successful login
+        // Verify login
         Assert.assertTrue(
                 loginSuccessful,
                 "Login was not successful!"

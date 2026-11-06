@@ -1,15 +1,13 @@
 package com.linkedin.automation.tests;
 
 import com.linkedin.automation.base.BaseTest;
+import com.linkedin.automation.pages.LoginPage;
+import com.linkedin.automation.pages.SearchPage;
 
 import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
-import org.openqa.selenium.StaleElementReferenceException;
-
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import org.testng.Assert;
@@ -19,57 +17,19 @@ import java.time.Duration;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.io.IOException;
-import java.util.List;
 
 public class SearchTest extends BaseTest {
 
     private static final int WAIT_TIME = 40;
-
-    // Find a visible and enabled element
-    private WebElement findVisibleElement(
-            WebDriver driver, By... locators) {
-
-        WebDriverWait wait =
-                new WebDriverWait(
-                        driver,
-                        Duration.ofSeconds(WAIT_TIME)
-                );
-
-        return wait.until(d -> {
-
-            for (By locator : locators) {
-
-                List<WebElement> elements =
-                        d.findElements(locator);
-
-                for (WebElement element : elements) {
-
-                    try {
-
-                        if (element.isDisplayed()
-                                && element.isEnabled()) {
-
-                            return element;
-                        }
-
-                    } catch (StaleElementReferenceException ignored) {
-                        // Retry during next wait cycle
-                    }
-                }
-            }
-
-            return null;
-        });
-    }
 
     // Detect LinkedIn security verification
     private boolean isSecurityCheckpoint(WebDriver driver) {
 
         String url = driver.getCurrentUrl().toLowerCase();
 
-        String pageText = driver.findElement(By.tagName("body"))
-                .getText()
-                .toLowerCase();
+        String pageText = driver.findElement(
+                By.tagName("body")
+        ).getText().toLowerCase();
 
         return url.contains("checkpoint")
                 || url.contains("challenge")
@@ -112,24 +72,9 @@ public class SearchTest extends BaseTest {
     @Test
     public void verifySearchResults() {
 
-        WebDriverWait wait =
-                new WebDriverWait(
-                        driver,
-                        Duration.ofSeconds(WAIT_TIME)
-                );
-
         try {
 
-            // STEP 1: Open LinkedIn Login Page
-
-            driver.get("https://www.linkedin.com/login");
-
-            System.out.println(
-                    "LinkedIn Login Page Opened!"
-            );
-
-            // STEP 2: Get Login Credentials
-
+            // STEP 1: Get login credentials
             String email =
                     System.getProperty("linkedin.email");
 
@@ -156,141 +101,77 @@ public class SearchTest extends BaseTest {
                     "Password cannot be empty!"
             );
 
-            // STEP 3: Enter Email
+            // STEP 2: Create LoginPage object
+            LoginPage loginPage = new LoginPage(driver);
 
-            WebElement emailBox =
-                    findVisibleElement(
-                            driver,
-                            By.cssSelector("input#username"),
-                            By.cssSelector("input[type='email']")
-                    );
+            // Open LinkedIn login page
+            loginPage.openLoginPage();
 
-            emailBox.clear();
-            emailBox.sendKeys(email);
+            System.out.println(
+                    "LinkedIn Login Page Opened!"
+            );
 
-            System.out.println("Email entered!");
+            // STEP 3: Login using LoginPage
+            loginPage.login(email, password);
 
-            // STEP 4: Enter Password
+            System.out.println(
+                    "Sign In button clicked!"
+            );
 
-            WebElement passwordBox =
-                    findVisibleElement(
-                            driver,
-                            By.cssSelector("input#password"),
-                            By.cssSelector("input[type='password']")
-                    );
+            System.out.println(
+                    "Waiting for LinkedIn verification..."
+            );
 
-            passwordBox.clear();
-            passwordBox.sendKeys(password);
+            // STEP 4: Wait for Feed or security checkpoint
+            WebDriverWait loginWait = new WebDriverWait(
+                    driver,
+                    Duration.ofSeconds(300)
+            );
 
-            System.out.println("Password entered!");
-
-            // STEP 5: Click Sign In Button
-
-            WebElement signInButton =
-                    findVisibleElement(
-                            driver,
-                            By.xpath("//button[.//span[normalize-space()='Sign in']]"),
-                            By.cssSelector("button[type='submit']")
-                    );
-
-            signInButton.click();
-
-            System.out.println("Sign In button clicked!");
-
-            // STEP 6: Wait for Login or Security Check
-
-            boolean loginOrSecurity = wait.until(d -> {
+            loginWait.until(d -> {
 
                 if (isSecurityCheckpoint(d)) {
                     return true;
                 }
 
-                boolean feedOpened =
-                        d.getCurrentUrl().contains("/feed");
-
-                boolean searchVisible =
-                        !d.findElements(
-                                        By.cssSelector(
-                                                "input[placeholder*='Search'], " +
-                                                        "input[aria-label*='Search']"
-                                        )
-                                ).stream()
-                                .filter(WebElement::isDisplayed)
-                                .toList()
-                                .isEmpty();
-
-                return feedOpened || searchVisible;
+                return d.getCurrentUrl().contains("/feed");
             });
 
-            Assert.assertTrue(
-                    loginOrSecurity,
-                    "Login status could not be determined!"
-            );
-
+            // Do not bypass security verification
             Assert.assertFalse(
                     isSecurityCheckpoint(driver),
-                    "LinkedIn Quick Security Check interrupted login. " +
-                            "Verification was not bypassed."
+                    "LinkedIn security verification interrupted login. "
+                            + "Verification was not bypassed."
             );
 
             Assert.assertTrue(
-                    driver.getCurrentUrl().contains("/feed")
-                            || !driver.findElements(
-                            By.cssSelector(
-                                    "input[placeholder*='Search'], " +
-                                            "input[aria-label*='Search']"
-                            )
-                    ).isEmpty(),
+                    driver.getCurrentUrl().contains("/feed"),
                     "LinkedIn Feed was not reached!"
             );
 
-            System.out.println("Login Successful!");
-
-            // STEP 7: Find Search Box
-
-            WebElement searchBox =
-                    findVisibleElement(
-                            driver,
-                            By.cssSelector("input[placeholder*='Search']"),
-                            By.cssSelector("input[aria-label*='Search']"),
-                            By.cssSelector("input[role='combobox']")
-                    );
-
-            Assert.assertNotNull(
-                    searchBox,
-                    "LinkedIn Search Box not found!"
+            System.out.println(
+                    "Login Successful!"
             );
 
-            // STEP 8: Enter Search Term
+            // STEP 5: Create SearchPage object
+            SearchPage searchPage = new SearchPage(driver);
 
-            searchBox.click();
+            // STEP 6: Search keyword
+            String searchKeyword = "Software Testing";
 
-            searchBox.sendKeys(
-                    Keys.chord(Keys.CONTROL, "a")
-            );
-
-            searchBox.sendKeys("Software Testing");
+            searchPage.search(searchKeyword);
 
             System.out.println(
-                    "Search term entered!"
+                    "Search term entered: " + searchKeyword
             );
-
-            // STEP 9: Press Enter
-
-            searchBox.sendKeys(Keys.ENTER);
 
             System.out.println(
-                    "Enter key pressed!"
+                    "Search submitted!"
             );
 
-            // STEP 10: Verify Search Results URL
-
-            wait.until(d ->
-                    d.getCurrentUrl().contains("/search/")
-            );
-
+            // STEP 7: Verify search results URL
             Assert.assertTrue(
-                    driver.getCurrentUrl().contains("/search/"),
+                    searchPage.isSearchResultsPageOpened(),
                     "Search results page was not opened!"
             );
 
@@ -298,40 +179,9 @@ public class SearchTest extends BaseTest {
                     "Search Results Page Opened!"
             );
 
-            // STEP 11: Verify At Least One Visible Result
-
-            By resultLocator = By.cssSelector(
-                    ".reusable-search__result-container, " +
-                            "main a[href*='/in/'], " +
-                            "main a[href*='/company/']"
-            );
-
-            WebElement searchResult =
-                    wait.until(d -> {
-
-                        List<WebElement> results =
-                                d.findElements(resultLocator);
-
-                        for (WebElement result : results) {
-
-                            try {
-
-                                if (result.isDisplayed()
-                                        && !result.getText().isBlank()) {
-
-                                    return result;
-                                }
-
-                            } catch (StaleElementReferenceException ignored) {
-                                // Retry
-                            }
-                        }
-
-                        return null;
-                    });
-
-            Assert.assertNotNull(
-                    searchResult,
+            // STEP 8: Verify visible search result
+            Assert.assertTrue(
+                    searchPage.hasVisibleSearchResult(),
                     "No visible search result found!"
             );
 
@@ -344,7 +194,7 @@ public class SearchTest extends BaseTest {
             );
 
             System.out.println(
-                    "Final URL: " + driver.getCurrentUrl()
+                    "Final URL: " + searchPage.getCurrentUrl()
             );
 
         } catch (Exception e) {
